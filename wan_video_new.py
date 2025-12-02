@@ -10,7 +10,7 @@ from tqdm import tqdm
 from typing import Optional
 from typing_extensions import Literal
 
-from  utils import BasePipeline, ModelConfig, PipelineUnit, PipelineUnitRunner
+from utils import BasePipeline, ModelConfig, PipelineUnit, PipelineUnitRunner
 from models.model_manager import ModelManager
 from models.utils import load_state_dict
 from models.wan_video_dit import WanModel, RMSNorm, sinusoidal_embedding_1d
@@ -25,7 +25,7 @@ from models.wan_video_mot import MotWanModel
 from models.longcat_video_dit import LongCatVideoTransformer3DModel
 from schedulers.flow_match import FlowMatchScheduler
 from prompters.wan_prompter import WanPrompter
-from vram_management import enable_vram_management, AutoWrappedModule, AutoWrappedLinear, WanAutoCastLayerNorm
+from vram_management.layers import enable_vram_management, AutoWrappedModule, AutoWrappedLinear, WanAutoCastLayerNorm
 from lora import GeneralLoRALoader
 
 
@@ -154,7 +154,7 @@ class WanVideoPipeline(BasePipeline):
                 vram_limit=vram_limit,
             )
         if self.dit is not None:
-            from ..models.longcat_video_dit import LayerNorm_FP32, RMSNorm_FP32
+            from models.longcat_video_dit import LayerNorm_FP32, RMSNorm_FP32
             dtype = next(iter(self.dit.parameters())).dtype
             device = "cpu" if vram_limit is not None else self.device
             enable_vram_management(
@@ -332,7 +332,7 @@ class WanVideoPipeline(BasePipeline):
             
     def enable_usp(self):
         from xfuser.core.distributed import get_sequence_parallel_world_size
-        from ..distributed.xdit_context_parallel import usp_attn_forward, usp_dit_forward
+        from xdit_context_parallel import usp_attn_forward, usp_dit_forward
 
         for block in self.dit.blocks:
             block.self_attn.forward = types.MethodType(usp_attn_forward, block.self_attn)
@@ -351,6 +351,7 @@ class WanVideoPipeline(BasePipeline):
         device: Union[str, torch.device] = "cuda",
         model_configs: list[ModelConfig] = [],
         tokenizer_config: ModelConfig = ModelConfig(model_id="Wan-AI/Wan2.1-T2V-1.3B", origin_file_pattern="google/*"),
+        tokenizer_path: str = None,  # ADD THIS PARAMETER
         audio_processor_config: ModelConfig = None,
         redirect_common_files: bool = True,
         use_usp=False,
